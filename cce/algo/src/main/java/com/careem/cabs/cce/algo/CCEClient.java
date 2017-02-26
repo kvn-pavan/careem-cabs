@@ -15,12 +15,10 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.geoDistanceQuery;
+import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 /**
@@ -34,27 +32,27 @@ public class CCEClient implements IClient {
         SearchRequestBuilder searchRequestBuilder = transportClient.prepareSearch("careemcabs");
 
         QueryBuilder queryBuilder = QueryBuilders.boolQuery()
-                                                 .must(termQuery("cabType", cabType.toString()))
-                                                 .must(termQuery("bookingMode", mode.toString()))
-                                                 .must(geoDistanceQuery("location").point(lat, lon).distance(2, DistanceUnit.KILOMETERS));
+                                                 .must(matchQuery("cabType", cabType.toString()))
+                                                 .must(matchQuery("bookingMode", mode.toString()))
+                                                 .filter(geoDistanceQuery("location").point(lat, lon).distance(2, DistanceUnit.KILOMETERS));
 
 
         //sort by distance and rating descending
-//        searchRequestBuilder.setQuery(queryBuilder)
-//                            .addSort(SortBuilders.geoDistanceSort("location", lat, lon).order(SortOrder.ASC));
+        searchRequestBuilder.setQuery(queryBuilder)
+                            .addSort(SortBuilders.geoDistanceSort("location", lat, lon).order(SortOrder.ASC).unit(DistanceUnit.KILOMETERS));
 //                            .addSort(SortBuilders.fieldSort("rating").order(SortOrder.DESC));
 
         SearchResponse searchResponse = searchRequestBuilder.execute().actionGet();
 
         SearchHit[] results = searchResponse.getHits().getHits();
 
-        Set<CabResult> cabResults = new HashSet<>();
+        Set<CabResult> cabResults = new LinkedHashSet<>();
         for(SearchHit hit : results){
             Map<String, Object> hitResult = hit.getSource();
 
             CabResult cabResult = new CabResult();
 
-            String cabId = (String) hitResult.get("cabId");
+            String cabId = (String) hitResult.get("id");
 //            Integer rating = hit.field("rating").<Integer>getValue();
             Double cabLat = (Double) ((Map)hitResult.get("location")).get("lat");
             Double cabLong = (Double) ((Map)hitResult.get("location")).get("lon");
